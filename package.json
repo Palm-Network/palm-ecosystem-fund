@@ -1,0 +1,11 @@
+{
+  "name": "palm-ecosystem-fund",
+  "version": "1.0.0",
+  "description": "Holds contracts necessary for managing the Palm network ecosystem fund",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC"
+}
