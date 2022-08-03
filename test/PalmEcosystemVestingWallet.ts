@@ -8,6 +8,7 @@ const ONE_YEAR_IN_SECS = 365 * 24 * 60 * 60;
 const ONE_DAY_IN_SECONDS = 24 * 60 * 60;
 const ONE_GWEI = BigNumber.from(1_000_000_000);
 const ONE_PALM = ONE_GWEI.mul(ONE_GWEI);
+const ZERO_ADDRESS = "0x" + "00".repeat(20);
 
 const NOT_OWNER_ERROR = "Ownable: caller is not the owner";
 const PAUSED_EXCEPTION = "Pausable: paused";
@@ -157,6 +158,48 @@ describe("PalmEcosystemVestingWallet", function () {
 
         await contract.connect(owner).pause();
         expect(contract.connect(otherAddress).unpause()).to.be.revertedWith(NOT_OWNER_ERROR);
+      });
+    });
+
+    describe("setBeneficiary()", async function() {
+      it("Should set beneficiary when the owner requests it", async function() {
+        const { contract, owner, beneficiary, otherAddress } = await loadFixture(deployVestingContract);
+
+        const initialBeneficiary = await contract.beneficiary();
+        expect(initialBeneficiary).to.equal(beneficiary.address);
+
+        await contract.connect(owner).setBeneficiary(otherAddress.address);
+        expect(await contract.beneficiary()).to.equal(otherAddress.address);
+      });
+
+      it("Should set beneficiary even if contract is paused", async function() {
+        const { contract, owner, beneficiary, otherAddress } = await loadFixture(deployVestingContract);
+        await contract.connect(owner).pause();
+
+        // Check preconditions
+        const initialBeneficiary = await contract.beneficiary();
+        expect(initialBeneficiary).to.equal(beneficiary.address);
+
+        await contract.connect(owner).setBeneficiary(otherAddress.address);
+        expect(await contract.beneficiary()).to.equal(otherAddress.address);
+      });
+
+      it("Should revert if beneficiary is set to existing value", async function() {
+        const { contract, owner, beneficiary } = await loadFixture(deployVestingContract);
+
+        expect(contract.connect(owner).setBeneficiary(beneficiary.address)).to.be.revertedWith("New beneficiary must differ from current beneficiary");
+      });
+
+      it("Should revert if beneficiary is set to the zero address", async function() {
+        const { contract, owner, beneficiary } = await loadFixture(deployVestingContract);
+
+        expect(contract.connect(owner).setBeneficiary(ZERO_ADDRESS)).to.be.revertedWith("Beneficiary is zero address");
+      });
+
+      it("Should revert if invoked by non-owner", async function() {
+        const { contract, deployer, otherAddress } = await loadFixture(deployVestingContract);
+
+        expect(contract.connect(deployer).setBeneficiary(otherAddress.address)).to.be.revertedWith(NOT_OWNER_ERROR);
       });
     });
   })
