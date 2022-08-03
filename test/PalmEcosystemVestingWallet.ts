@@ -106,7 +106,7 @@ describe("PalmEcosystemVestingWallet", function () {
       });
     });
 
-    describe("pause()", async function() {
+    describe("pause()",  function() {
       it("Should pause the contract when the owner requests it", async function() {
         const { contract, owner } = await loadFixture(deployVestingContract);
 
@@ -133,7 +133,7 @@ describe("PalmEcosystemVestingWallet", function () {
       });
     });
 
-    describe("unpause()", async function() {
+    describe("unpause()",  function() {
       it("Should unpause the contract when the owner requests it", async function() {
         const { contract, owner } = await loadFixture(deployVestingContract);
 
@@ -161,7 +161,7 @@ describe("PalmEcosystemVestingWallet", function () {
       });
     });
 
-    describe("setBeneficiary()", async function() {
+    describe("setBeneficiary()", function() {
       it("Should set beneficiary when the owner requests it", async function() {
         const { contract, owner, beneficiary, otherAddress } = await loadFixture(deployVestingContract);
 
