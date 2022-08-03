@@ -97,7 +97,7 @@ describe("PalmEcosystemVestingWallet", function () {
   })
 
   describe("Withdrawals", function () {
-    describe("before vesting begins", function () {
+    describe("Before vesting begins", function () {
       it("Should not transfer any funds to the beneficiary", async function () {
         const {
           contract,
@@ -116,7 +116,7 @@ describe("PalmEcosystemVestingWallet", function () {
     });
 
     // TODO - debug these skipped tests
-    describe.skip("at vesting start time", function () {
+    describe.skip("At vesting start time", function () {
       it("Should not transfer any funds to the beneficiary", async function () {
         const {
           contract,
@@ -134,7 +134,7 @@ describe("PalmEcosystemVestingWallet", function () {
       });
     });
 
-    describe.skip("halfway through the vesting period", function () {
+    describe.skip("Halfway through the vesting period", function () {
       it("Should release half of the funds to the beneficiary", async function () {
         const {
           contract,
@@ -153,7 +153,7 @@ describe("PalmEcosystemVestingWallet", function () {
       });
     });
 
-    describe("at the end of the vesting period", function () {
+    describe("At the end of the vesting period", function () {
       it("Should release half of the funds to the beneficiary", async function () {
         const {
           contract,
