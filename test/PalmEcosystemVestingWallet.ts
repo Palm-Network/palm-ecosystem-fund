@@ -19,13 +19,13 @@ describe("PalmEcosystemVestingWallet", function () {
     const vestingDuration = ONE_YEAR_IN_SECS;
 
     // Contracts are deployed using the first signer/account by default
-    const [deployer, beneficiary, otherAddress] = await ethers.getSigners();
+    const [deployer, owner, beneficiary, otherAddress] = await ethers.getSigners();
 
     const contractFactory = await ethers.getContractFactory("PalmEcosystemVestingWallet");
-    const contract = await contractFactory.deploy(beneficiary.address, vestingStartTime, vestingDuration);
+    const contract = await contractFactory.deploy(owner.address, beneficiary.address, vestingStartTime, vestingDuration);
     await contract.deployed();
 
-    return { contract, deployer, beneficiary, otherAddress, vestingStartTime, vestingDuration };
+    return { contract, deployer, owner, beneficiary, otherAddress, vestingStartTime, vestingDuration };
   }
 
   async function deployAndFundVestingContract() {
@@ -60,6 +60,12 @@ describe("PalmEcosystemVestingWallet", function () {
   }
 
   describe("Deployment", function () {
+    it("Should set the expected owner", async function () {
+      const { contract, owner } = await loadFixture(deployVestingContract);
+
+      expect(await contract.owner()).to.equal(owner.address);
+    });
+
     it("Should set the expected beneficiary", async function () {
       const { contract, beneficiary } = await loadFixture(deployVestingContract);
 
@@ -78,6 +84,22 @@ describe("PalmEcosystemVestingWallet", function () {
       expect(await contract.duration()).to.equal(vestingDuration);
     });
   });
+
+  describe("Roles", function() {
+    it("Should transfer ownership if current owner requests it", async () => {
+      const { contract, owner, otherAddress } = await loadFixture(deployVestingContract);
+
+      await contract.connect(owner).transferOwnership(otherAddress.address);
+      expect(await contract.owner()).to.equal(otherAddress.address);
+    });
+
+    it("Should not transfer ownership if a non-owner requests it", async () => {
+      const { contract, deployer, otherAddress } = await loadFixture(deployVestingContract);
+
+      expect(contract.connect(deployer).transferOwnership(otherAddress.address))
+        .to.be.revertedWith("Ownable: caller is not the owner");
+    });
+  })
 
   describe("Funding", function() {
     it("Should be able to receive funds", async function() {
