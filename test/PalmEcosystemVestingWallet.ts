@@ -328,6 +328,16 @@ describe("PalmEcosystemVestingWallet", function () {
         expect(contractBalance).to.equal(0);
         expect(beneficiaryBalance).to.equal(fundAmount.add(beneficiaryInitialBalance));
       });
+
+      it("Should revert if contract is paused", async function () {
+        const {
+          contract,
+          owner
+        } = await loadFixture(deployFundAndAdvanceVestingContractToEndOfVestingPeriod);
+        await contract.connect(owner).pause();
+
+        expect(contract["release()"]()).to.be.revertedWith(PAUSED_EXCEPTION);
+      });
     });
   });
 });
