@@ -45,21 +45,21 @@ describe("PalmEcosystemVestingWallet", function () {
 
   async function deployFundAndAdvanceVestingContractToStartTime() {
     const parameters = await loadFixture(deployAndFundVestingContract);
-    await time.increaseTo(parameters.vestingStartTime);
+    await time.increaseTo(parameters.vestingStartTime - 1);
     return parameters;
   }
 
   async function deployFundAndAdvanceVestingContractToHalfwayThroughVestingPeriod() {
     const parameters = await loadFixture(deployAndFundVestingContract);
     const {vestingStartTime, vestingDuration} = parameters;
-    await time.increaseTo(vestingStartTime + vestingDuration/2);
+    await time.increaseTo(vestingStartTime + vestingDuration/2 - 1);
     return parameters;
   }
 
   async function deployFundAndAdvanceVestingContractToEndOfVestingPeriod() {
     const parameters = await loadFixture(deployAndFundVestingContract);
     const {vestingStartTime, vestingDuration} = parameters;
-    await time.increaseTo(vestingStartTime + vestingDuration);
+    await time.increaseTo(vestingStartTime + vestingDuration - 1);
     return parameters;
   }
 
@@ -275,8 +275,7 @@ describe("PalmEcosystemVestingWallet", function () {
       });
     });
 
-    // TODO - debug these skipped tests
-    describe.skip("At vesting start time", function () {
+    describe("At vesting start time", function () {
       it("Should not transfer any funds to the beneficiary", async function () {
         const {
           contract,
@@ -294,7 +293,7 @@ describe("PalmEcosystemVestingWallet", function () {
       });
     });
 
-    describe.skip("Halfway through the vesting period", function () {
+    describe("Halfway through the vesting period", function () {
       it("Should release half of the funds to the beneficiary", async function () {
         const {
           contract,
