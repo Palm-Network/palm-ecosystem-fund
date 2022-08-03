@@ -9,6 +9,9 @@ const ONE_DAY_IN_SECONDS = 24 * 60 * 60;
 const ONE_GWEI = BigNumber.from(1_000_000_000);
 const ONE_PALM = ONE_GWEI.mul(ONE_GWEI);
 
+const NOT_OWNER_ERROR = "Ownable: caller is not the owner";
+const PAUSED_EXCEPTION = "Pausable: paused";
+
 describe("PalmEcosystemVestingWallet", function () {
   // We define a fixture to reuse the same setup in every test.
   // We use loadFixture to run this setup once, snapshot that state,
@@ -85,19 +88,76 @@ describe("PalmEcosystemVestingWallet", function () {
     });
   });
 
-  describe("Roles", function() {
-    it("Should transfer ownership if current owner requests it", async () => {
-      const { contract, owner, otherAddress } = await loadFixture(deployVestingContract);
+  describe("Admin functions", function() {
+    describe("transferOwnership()", async function() {
+      it("Should transfer ownership if current owner requests it", async function() {
+        const { contract, owner, otherAddress } = await loadFixture(deployVestingContract);
 
-      await contract.connect(owner).transferOwnership(otherAddress.address);
-      expect(await contract.owner()).to.equal(otherAddress.address);
+        await contract.connect(owner).transferOwnership(otherAddress.address);
+        expect(await contract.owner()).to.equal(otherAddress.address);
+      });
+
+      it("Should revert if invoked by non-owner", async function(){
+        const { contract, deployer, otherAddress } = await loadFixture(deployVestingContract);
+
+        const txResult = contract.connect(deployer).transferOwnership(otherAddress.address);
+        expect(txResult).to.be.revertedWith(NOT_OWNER_ERROR);
+      });
     });
 
-    it("Should not transfer ownership if a non-owner requests it", async () => {
-      const { contract, deployer, otherAddress } = await loadFixture(deployVestingContract);
+    describe("pause()", async function() {
+      it("Should pause the contract when the owner requests it", async function() {
+        const { contract, owner } = await loadFixture(deployVestingContract);
 
-      expect(contract.connect(deployer).transferOwnership(otherAddress.address))
-        .to.be.revertedWith("Ownable: caller is not the owner");
+        const initialState = await contract.paused();
+        expect(initialState).to.equal(false);
+
+        await contract.connect(owner).pause();
+
+        const postState = await contract.paused();
+        expect(postState).to.equal(true);
+      });
+
+      it("Should revert if the contract is already paused", async function() {
+        const { contract, owner } = await loadFixture(deployVestingContract);
+        await contract.connect(owner).pause();
+
+        expect(contract.connect(owner).pause()).to.be.revertedWith(PAUSED_EXCEPTION);
+      });
+
+      it("Should revert if invoked by non-owner", async function() {
+        const { contract, otherAddress } = await loadFixture(deployVestingContract);
+
+        expect(contract.connect(otherAddress).pause()).to.be.revertedWith(NOT_OWNER_ERROR);
+      });
+    });
+
+    describe("unpause()", async function() {
+      it("Should unpause the contract when the owner requests it", async function() {
+        const { contract, owner } = await loadFixture(deployVestingContract);
+
+        await contract.connect(owner).pause();
+        const initialState = await contract.paused();
+        expect(initialState).to.equal(true);
+
+        await contract.connect(owner).unpause();
+
+        const postState = await contract.paused();
+        expect(postState).to.equal(false);
+      });
+
+      it("Should revert if the contract is already unpaused", async function() {
+        const { contract, owner } = await loadFixture(deployVestingContract);
+
+        expect(contract.connect(owner).unpause()).to.be.revertedWith("Pausable: not paused");
+      });
+
+      it("Should revert if invoked by non-owner", async function() {
+        const { contract, owner, otherAddress } = await loadFixture(deployVestingContract);
+
+        await contract.connect(owner).pause();
+        expect(contract.connect(otherAddress).unpause()).to.be.revertedWith(NOT_OWNER_ERROR);
+      });
     });
   })
 
