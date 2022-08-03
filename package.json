@@ -4,7 +4,8 @@
   "description": "Holds contracts necessary for managing the Palm network ecosystem fund",
   "main": "index.js",
   "scripts": {
-    "test": "hardhat test"
+    "test": "hardhat test",
+    "compile": "hardhat compile"
   },
   "author": "",
   "license": "ISC",
