@@ -202,7 +202,42 @@ describe("PalmEcosystemVestingWallet", function () {
         expect(contract.connect(deployer).setBeneficiary(otherAddress.address)).to.be.revertedWith(NOT_OWNER_ERROR);
       });
     });
-  })
+  });
+
+  describe("setDuration()", function() {
+
+    it("Should set duration when the owner requests it", async function() {
+      const { contract, owner, vestingDuration } = await loadFixture(deployVestingContract);
+
+      const initialDuration = await contract.duration();
+      expect(initialDuration).to.equal(vestingDuration);
+
+      const newDuration = vestingDuration * 2;
+      await contract.connect(owner).setDuration(newDuration);
+      expect(await contract.duration()).to.equal(newDuration);
+    });
+
+    it("Should set duration even if contract is paused", async function() {
+      const { contract, owner, vestingDuration } = await loadFixture(deployVestingContract);
+      await contract.connect(owner).pause();
+
+      const newDuration = vestingDuration * 2;
+      await contract.connect(owner).setDuration(newDuration);
+      expect(await contract.duration()).to.equal(newDuration);
+    });
+
+    it("Should revert if new duration matches old duration", async function() {
+      const { contract, owner, vestingDuration } = await loadFixture(deployVestingContract);
+
+      expect(contract.connect(owner).setDuration(vestingDuration)).to.be.revertedWith("New duration must differ from current duration");
+    });
+
+    it("Should revert if invoked by non-owner", async function() {
+      const { contract, deployer, vestingDuration } = await loadFixture(deployVestingContract);
+
+      expect(contract.connect(deployer).setDuration(vestingDuration + 1)).to.be.revertedWith(NOT_OWNER_ERROR);
+    });
+  });
 
   describe("Funding", function() {
     it("Should be able to receive funds", async function() {
