@@ -1,9 +1,8 @@
-import { time, loadFixture } from "@nomicfoundation/hardhat-network-helpers";
-import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
-import { expect } from "chai";
-import { ethers } from "hardhat";
-import {BigNumber} from "ethers";
-import {erc20} from "../typechain-types/@openzeppelin/contracts/token";
+import {loadFixture, time} from "@nomicfoundation/hardhat-network-helpers";
+import {expect} from "chai";
+import {ethers} from "hardhat";
+import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
+import {BigNumber, Contract} from "ethers";
 
 const ONE_YEAR_IN_SECS = 365 * 24 * 60 * 60;
 const ONE_DAY_IN_SECONDS = 24 * 60 * 60;
@@ -18,7 +17,8 @@ describe("PalmEcosystemVestingWallet", function () {
   // We define a fixture to reuse the same setup in every test.
   // We use loadFixture to run this setup once, snapshot that state,
   // and reset Hardhat Network to that snapshopt in every test.
-  async function deployVestingContract() {
+  type DeployParams = { owner: SignerWithAddress; beneficiary: SignerWithAddress; contract: Contract; otherAddress: SignerWithAddress; vestingDuration: number; deployer: SignerWithAddress; erc20Contract: Contract; vestingStartTime: number };
+  async function deployVestingContractFixture(): Promise<DeployParams> {
     const currentTime = (await time.latest()) + ONE_YEAR_IN_SECS;
     const vestingStartTime = currentTime + ONE_DAY_IN_SECONDS * 7;
     const vestingDuration = ONE_YEAR_IN_SECS;
@@ -36,64 +36,36 @@ describe("PalmEcosystemVestingWallet", function () {
     const erc20Contract = await erc20Factory.deploy();
     await erc20Contract.deployed();
 
-    return { contract, erc20Contract, deployer, owner, beneficiary, otherAddress, vestingStartTime, vestingDuration };
+    return  { contract, erc20Contract, deployer, owner, beneficiary, otherAddress, vestingStartTime, vestingDuration };
   }
 
-  async function deployAndFundVestingContract() {
-    const parameters = await loadFixture(deployVestingContract);
-    const {deployer, contract, erc20Contract} = parameters;
-
-    // Fund the contract with native tokens
-    const fundAmount = ONE_PALM.mul(1000);
-    await deployer.sendTransaction({to: contract.address, value: fundAmount});
-
-    // Fund the contract with ERC-20 tokens
-    await erc20Contract.mint(contract.address, fundAmount);
-
-    return {... parameters, fundAmount};
-  }
-
-  async function deployFundAndAdvanceVestingContractToStartTime() {
-    const parameters = await loadFixture(deployAndFundVestingContract);
-    await time.increaseTo(parameters.vestingStartTime - 1);
-    return parameters;
-  }
-
-  async function deployFundAndAdvanceVestingContractToHalfwayThroughVestingPeriod() {
-    const parameters = await loadFixture(deployAndFundVestingContract);
-    const {vestingStartTime, vestingDuration} = parameters;
-    await time.increaseTo(vestingStartTime + vestingDuration/2 - 1);
-    return parameters;
-  }
-
-  async function deployFundAndAdvanceVestingContractToEndOfVestingPeriod() {
-    const parameters = await loadFixture(deployAndFundVestingContract);
-    const {vestingStartTime, vestingDuration} = parameters;
-    await time.increaseTo(vestingStartTime + vestingDuration - 1);
-    return parameters;
-  }
+  let deployParams:DeployParams;
+  beforeEach("Deploy contracts", async function() {
+    deployParams  = await loadFixture(deployVestingContractFixture);
+  });
 
   describe("Deployment", function () {
+
     it("Should set the expected owner", async function () {
-      const { contract, owner } = await loadFixture(deployVestingContract);
+      const { contract, owner } = deployParams;
 
       expect(await contract.owner()).to.equal(owner.address);
     });
 
     it("Should set the expected beneficiary", async function () {
-      const { contract, beneficiary } = await loadFixture(deployVestingContract);
+      const { contract, beneficiary } = deployParams;
 
       expect(await contract.beneficiary()).to.equal(beneficiary.address);
     });
 
     it("Should set expected startTime", async function () {
-      const { contract, vestingStartTime } = await loadFixture(deployVestingContract);
+      const { contract, vestingStartTime } = deployParams;
 
       expect(await contract.start()).to.equal(vestingStartTime);
     });
 
     it("Should set expected duration", async function () {
-      const { contract, vestingDuration } = await loadFixture(deployVestingContract);
+      const { contract, vestingDuration } = deployParams;
 
       expect(await contract.duration()).to.equal(vestingDuration);
     });
@@ -102,14 +74,14 @@ describe("PalmEcosystemVestingWallet", function () {
   describe("Admin functions", function() {
     describe("transferOwnership()", async function() {
       it("Should transfer ownership if current owner requests it", async function() {
-        const { contract, owner, otherAddress } = await loadFixture(deployVestingContract);
+        const { contract, owner, otherAddress } = deployParams;
 
         await contract.connect(owner).transferOwnership(otherAddress.address);
         expect(await contract.owner()).to.equal(otherAddress.address);
       });
 
       it("Should revert if invoked by non-owner", async function(){
-        const { contract, deployer, otherAddress } = await loadFixture(deployVestingContract);
+        const { contract, deployer, otherAddress } = deployParams;
 
         const txResult = contract.connect(deployer).transferOwnership(otherAddress.address);
         expect(txResult).to.be.revertedWith(NOT_OWNER_ERROR);
@@ -118,7 +90,7 @@ describe("PalmEcosystemVestingWallet", function () {
 
     describe("pause()",  function() {
       it("Should pause the contract when the owner requests it", async function() {
-        const { contract, owner } = await loadFixture(deployVestingContract);
+        const { contract, owner } = deployParams;
 
         const initialState = await contract.paused();
         expect(initialState).to.equal(false);
@@ -130,14 +102,14 @@ describe("PalmEcosystemVestingWallet", function () {
       });
 
       it("Should revert if the contract is already paused", async function() {
-        const { contract, owner } = await loadFixture(deployVestingContract);
+        const { contract, owner } = await deployParams;
         await contract.connect(owner).pause();
 
         expect(contract.connect(owner).pause()).to.be.revertedWith(PAUSED_EXCEPTION);
       });
 
       it("Should revert if invoked by non-owner", async function() {
-        const { contract, otherAddress } = await loadFixture(deployVestingContract);
+        const { contract, otherAddress } = await deployParams;
 
         expect(contract.connect(otherAddress).pause()).to.be.revertedWith(NOT_OWNER_ERROR);
       });
@@ -145,7 +117,7 @@ describe("PalmEcosystemVestingWallet", function () {
 
     describe("unpause()",  function() {
       it("Should unpause the contract when the owner requests it", async function() {
-        const { contract, owner } = await loadFixture(deployVestingContract);
+        const { contract, owner } = await deployParams;
 
         await contract.connect(owner).pause();
         const initialState = await contract.paused();
@@ -158,13 +130,13 @@ describe("PalmEcosystemVestingWallet", function () {
       });
 
       it("Should revert if the contract is already unpaused", async function() {
-        const { contract, owner } = await loadFixture(deployVestingContract);
+        const { contract, owner } = deployParams;
 
         expect(contract.connect(owner).unpause()).to.be.revertedWith("Pausable: not paused");
       });
 
       it("Should revert if invoked by non-owner", async function() {
-        const { contract, owner, otherAddress } = await loadFixture(deployVestingContract);
+        const { contract, owner, otherAddress } = deployParams;
 
         await contract.connect(owner).pause();
         expect(contract.connect(otherAddress).unpause()).to.be.revertedWith(NOT_OWNER_ERROR);
@@ -173,7 +145,7 @@ describe("PalmEcosystemVestingWallet", function () {
 
     describe("setBeneficiary()", function() {
       it("Should set beneficiary when the owner requests it", async function() {
-        const { contract, owner, beneficiary, otherAddress } = await loadFixture(deployVestingContract);
+        const { contract, owner, beneficiary, otherAddress } = deployParams;
 
         const initialBeneficiary = await contract.beneficiary();
         expect(initialBeneficiary).to.equal(beneficiary.address);
@@ -183,7 +155,7 @@ describe("PalmEcosystemVestingWallet", function () {
       });
 
       it("Should set beneficiary even if contract is paused", async function() {
-        const { contract, owner, beneficiary, otherAddress } = await loadFixture(deployVestingContract);
+        const { contract, owner, beneficiary, otherAddress } = deployParams;
         await contract.connect(owner).pause();
 
         // Check preconditions
@@ -195,242 +167,282 @@ describe("PalmEcosystemVestingWallet", function () {
       });
 
       it("Should revert if beneficiary is set to existing value", async function() {
-        const { contract, owner, beneficiary } = await loadFixture(deployVestingContract);
+        const { contract, owner, beneficiary } = deployParams;
 
         expect(contract.connect(owner).setBeneficiary(beneficiary.address)).to.be.revertedWith("New beneficiary must differ from current beneficiary");
       });
 
       it("Should revert if beneficiary is set to the zero address", async function() {
-        const { contract, owner, beneficiary } = await loadFixture(deployVestingContract);
+        const { contract, owner, beneficiary } = deployParams;
 
         expect(contract.connect(owner).setBeneficiary(ZERO_ADDRESS)).to.be.revertedWith("Beneficiary is zero address");
       });
 
       it("Should revert if invoked by non-owner", async function() {
-        const { contract, deployer, otherAddress } = await loadFixture(deployVestingContract);
+        const { contract, deployer, otherAddress } = deployParams;
 
         expect(contract.connect(deployer).setBeneficiary(otherAddress.address)).to.be.revertedWith(NOT_OWNER_ERROR);
       });
     });
+
+    describe("setDuration()", function() {
+
+      it("Should set duration when the owner requests it", async function() {
+        const { contract, owner, vestingDuration } = deployParams;
+
+        const initialDuration = await contract.duration();
+        expect(initialDuration).to.equal(vestingDuration);
+
+        const newDuration = vestingDuration * 2;
+        await contract.connect(owner).setDuration(newDuration);
+        expect(await contract.duration()).to.equal(newDuration);
+      });
+
+      it("Should set duration even if contract is paused", async function() {
+        const { contract, owner, vestingDuration } = deployParams;
+        await contract.connect(owner).pause();
+
+        const newDuration = vestingDuration * 2;
+        await contract.connect(owner).setDuration(newDuration);
+        expect(await contract.duration()).to.equal(newDuration);
+      });
+
+      it("Should revert if new duration matches old duration", async function() {
+        const { contract, owner, vestingDuration } = deployParams;
+
+        expect(contract.connect(owner).setDuration(vestingDuration)).to.be.revertedWith("New duration must differ from current duration");
+      });
+
+      it("Should revert if invoked by non-owner", async function() {
+        const { contract, deployer, vestingDuration } = deployParams;
+
+        expect(contract.connect(deployer).setDuration(vestingDuration + 1)).to.be.revertedWith(NOT_OWNER_ERROR);
+      });
+    });
+
   });
 
-  describe("setDuration()", function() {
+  describe("After being funded", function() {
+    async function setTimeAtStartOfVesting() {
+      await time.increaseTo(deployParams.vestingStartTime - 1);
+    }
+    async function setTimeToHalfwayThroughVesting() {
+      const {vestingStartTime, vestingDuration} = deployParams;
+      await time.increaseTo(vestingStartTime + vestingDuration / 2 - 1);
+    }
+    async function setTimeToEndOfVestingPeriod() {
+      const {vestingStartTime, vestingDuration} = deployParams;
+      await time.increaseTo(vestingStartTime + vestingDuration - 1);
+    }
 
-    it("Should set duration when the owner requests it", async function() {
-      const { contract, owner, vestingDuration } = await loadFixture(deployVestingContract);
+    type FundParams = {fundAmount:BigNumber};
+    let fundingParams:FundParams&DeployParams;
+    beforeEach(async function() {
+      const {deployer, contract, erc20Contract} = deployParams;
 
-      const initialDuration = await contract.duration();
-      expect(initialDuration).to.equal(vestingDuration);
+      // Fund the contract with native tokens
+      const fundAmount: BigNumber = ONE_PALM.mul(1000);
+      await deployer.sendTransaction({to: contract.address, value: fundAmount});
 
-      const newDuration = vestingDuration * 2;
-      await contract.connect(owner).setDuration(newDuration);
-      expect(await contract.duration()).to.equal(newDuration);
+      // Fund the contract with ERC-20 tokens
+      await erc20Contract.mint(contract.address, fundAmount);
+
+      fundingParams = {... deployParams, fundAmount};
     });
 
-    it("Should set duration even if contract is paused", async function() {
-      const { contract, owner, vestingDuration } = await loadFixture(deployVestingContract);
-      await contract.connect(owner).pause();
-
-      const newDuration = vestingDuration * 2;
-      await contract.connect(owner).setDuration(newDuration);
-      expect(await contract.duration()).to.equal(newDuration);
-    });
-
-    it("Should revert if new duration matches old duration", async function() {
-      const { contract, owner, vestingDuration } = await loadFixture(deployVestingContract);
-
-      expect(contract.connect(owner).setDuration(vestingDuration)).to.be.revertedWith("New duration must differ from current duration");
-    });
-
-    it("Should revert if invoked by non-owner", async function() {
-      const { contract, deployer, vestingDuration } = await loadFixture(deployVestingContract);
-
-      expect(contract.connect(deployer).setDuration(vestingDuration + 1)).to.be.revertedWith(NOT_OWNER_ERROR);
-    });
-  });
-
-  describe("Funding", function() {
-    it("Should be able to receive funds", async function() {
-      const { contract, fundAmount } = await loadFixture(deployAndFundVestingContract);
+    it("Should have the expected balance", async function() {
+      const { contract, fundAmount } = fundingParams;
 
       const contractBalance = await contract.provider.getBalance(contract.address);
       expect(contractBalance).to.equal(fundAmount.toString());
     });
 
-    it("Should be able to receive funds in multiple batches", async function() {
-      const { contract, fundAmount, deployer } = await loadFixture(deployAndFundVestingContract);
+    it("Should be able to receive additional funds", async function() {
+      const { contract, fundAmount, deployer } = fundingParams;
 
       await deployer.sendTransaction({to: contract.address, value: 1});
       const contractBalance = await contract.provider.getBalance(contract.address);
       expect(contractBalance).to.equal(fundAmount.add(1).toString());
     });
-  })
 
-  describe("Withdrawals", function () {
-    describe("Of native tokens", function() {
-      describe("Before vesting begins", function () {
-        it("Should not transfer any funds to the beneficiary", async function () {
-          const {
-            contract,
-            beneficiary,
-            fundAmount
-          } = await loadFixture(deployAndFundVestingContract);
-          const beneficiaryInitialBalance = await beneficiary.getBalance();
+    describe("Withdrawals", function () {
+      describe("Of native tokens", function() {
+        describe("Before vesting begins", function () {
+          it("Should not transfer any funds to the beneficiary", async function () {
+            const {
+              contract,
+              beneficiary,
+              fundAmount
+            } = fundingParams;
+            const beneficiaryInitialBalance = await beneficiary.getBalance();
 
-          await contract["release()"]();
+            await contract["release()"]();
 
-          const contractBalance = await contract.provider.getBalance(contract.address);
-          const beneficiaryBalance = await beneficiary.getBalance();
-          expect(contractBalance).to.equal(fundAmount.toString());
-          expect(beneficiaryBalance).to.equal(beneficiaryInitialBalance);
+            const contractBalance = await contract.provider.getBalance(contract.address);
+            const beneficiaryBalance = await beneficiary.getBalance();
+            expect(contractBalance).to.equal(fundAmount.toString());
+            expect(beneficiaryBalance).to.equal(beneficiaryInitialBalance);
+          });
+        });
+
+        describe("At vesting start time", function () {
+          beforeEach(setTimeAtStartOfVesting);
+
+          it("Should not transfer any funds to the beneficiary", async function () {
+            const {
+              contract,
+              beneficiary,
+              fundAmount
+            } = fundingParams;
+            const beneficiaryInitialBalance = await beneficiary.getBalance();
+
+            await contract["release()"]();
+
+            const contractBalance = await contract.provider.getBalance(contract.address);
+            const beneficiaryBalance = await beneficiary.getBalance();
+            expect(contractBalance).to.equal(fundAmount.toString());
+            expect(beneficiaryBalance).to.equal(beneficiaryInitialBalance);
+          });
+        });
+
+        describe("Halfway through the vesting period", function () {
+          beforeEach(setTimeToHalfwayThroughVesting);
+
+          it("Should release half of the funds to the beneficiary", async function () {
+            const {
+              contract,
+              beneficiary,
+              fundAmount
+            } = fundingParams;
+            const beneficiaryInitialBalance = await beneficiary.getBalance();
+            const halfOfFunds = fundAmount.div(2);
+
+            await contract["release()"]();
+
+            const contractBalance = await contract.provider.getBalance(contract.address);
+            const beneficiaryBalance = await beneficiary.getBalance();
+            expect(contractBalance).to.equal(halfOfFunds.toString());
+            expect(beneficiaryBalance).to.equal(halfOfFunds.add(beneficiaryInitialBalance));
+          });
+        });
+
+        describe("At the end of the vesting period", function () {
+          beforeEach(setTimeToEndOfVestingPeriod);
+
+          it("Should release half of the funds to the beneficiary", async function () {
+            const {
+              contract,
+              beneficiary,
+              fundAmount
+            } = fundingParams;
+            const beneficiaryInitialBalance = await beneficiary.getBalance();
+
+            await contract["release()"]();
+
+            const contractBalance = await contract.provider.getBalance(contract.address);
+            const beneficiaryBalance = await beneficiary.getBalance();
+            expect(contractBalance).to.equal(0);
+            expect(beneficiaryBalance).to.equal(fundAmount.add(beneficiaryInitialBalance));
+          });
+
+          it("Should revert if contract is paused", async function () {
+            const {
+              contract,
+              owner
+            } = deployParams;
+            await contract.connect(owner).pause();
+
+            expect(contract["release()"]()).to.be.revertedWith(PAUSED_EXCEPTION);
+          });
         });
       });
 
-      describe("At vesting start time", function () {
-        it("Should not transfer any funds to the beneficiary", async function () {
-          const {
-            contract,
-            beneficiary,
-            fundAmount
-          } = await loadFixture(deployFundAndAdvanceVestingContractToStartTime);
-          const beneficiaryInitialBalance = await beneficiary.getBalance();
+      describe("Of ERC-20 tokens", function() {
+        describe("Before vesting begins", function () {
+          it("Should not transfer any funds to the beneficiary", async function () {
+            const {
+              contract,
+              erc20Contract,
+              beneficiary,
+              fundAmount
+            } = fundingParams;
+            await contract["release(address)"](erc20Contract.address);
 
-          await contract["release()"]();
-
-          const contractBalance = await contract.provider.getBalance(contract.address);
-          const beneficiaryBalance = await beneficiary.getBalance();
-          expect(contractBalance).to.equal(fundAmount.toString());
-          expect(beneficiaryBalance).to.equal(beneficiaryInitialBalance);
-        });
-      });
-
-      describe("Halfway through the vesting period", function () {
-        it("Should release half of the funds to the beneficiary", async function () {
-          const {
-            contract,
-            beneficiary,
-            fundAmount
-          } = await loadFixture(deployFundAndAdvanceVestingContractToHalfwayThroughVestingPeriod);
-          const beneficiaryInitialBalance = await beneficiary.getBalance();
-          const halfOfFunds = fundAmount.div(2);
-
-          await contract["release()"]();
-
-          const contractBalance = await contract.provider.getBalance(contract.address);
-          const beneficiaryBalance = await beneficiary.getBalance();
-          expect(contractBalance).to.equal(halfOfFunds.toString());
-          expect(beneficiaryBalance).to.equal(halfOfFunds.add(beneficiaryInitialBalance));
-        });
-      });
-
-      describe("At the end of the vesting period", function () {
-        it("Should release half of the funds to the beneficiary", async function () {
-          const {
-            contract,
-            beneficiary,
-            fundAmount
-          } = await loadFixture(deployFundAndAdvanceVestingContractToEndOfVestingPeriod);
-          const beneficiaryInitialBalance = await beneficiary.getBalance();
-
-          await contract["release()"]();
-
-          const contractBalance = await contract.provider.getBalance(contract.address);
-          const beneficiaryBalance = await beneficiary.getBalance();
-          expect(contractBalance).to.equal(0);
-          expect(beneficiaryBalance).to.equal(fundAmount.add(beneficiaryInitialBalance));
+            const contractBalance = await erc20Contract.balanceOf(contract.address);
+            const beneficiaryBalance = await erc20Contract.balanceOf(beneficiary.address);
+            expect(contractBalance).to.equal(fundAmount.toString());
+            expect(beneficiaryBalance).to.equal(0);
+          });
         });
 
-        it("Should revert if contract is paused", async function () {
-          const {
-            contract,
-            owner
-          } = await loadFixture(deployFundAndAdvanceVestingContractToEndOfVestingPeriod);
-          await contract.connect(owner).pause();
+        describe("At vesting start time", function () {
+          beforeEach(setTimeAtStartOfVesting);
 
-          expect(contract["release()"]()).to.be.revertedWith(PAUSED_EXCEPTION);
-        });
-      });
-    });
+          it("Should not transfer any funds to the beneficiary", async function () {
+            const {
+              contract,
+              erc20Contract,
+              beneficiary,
+              fundAmount
+            } = fundingParams;
+            await contract["release(address)"](erc20Contract.address);
 
-    describe("Of ERC-20 tokens", function() {
-      describe("Before vesting begins", function () {
-        it("Should not transfer any funds to the beneficiary", async function () {
-          const {
-            contract,
-            erc20Contract,
-            beneficiary,
-            fundAmount
-          } = await loadFixture(deployAndFundVestingContract);
-          await contract["release(address)"](erc20Contract.address);
-
-          const contractBalance = await erc20Contract.balanceOf(contract.address);
-          const beneficiaryBalance = await erc20Contract.balanceOf(beneficiary.address);
-          expect(contractBalance).to.equal(fundAmount.toString());
-          expect(beneficiaryBalance).to.equal(0);
-        });
-      });
-
-      describe("At vesting start time", function () {
-        it("Should not transfer any funds to the beneficiary", async function () {
-          const {
-            contract,
-            erc20Contract,
-            beneficiary,
-            fundAmount
-          } = await loadFixture(deployFundAndAdvanceVestingContractToStartTime);
-          await contract["release(address)"](erc20Contract.address);
-
-          const contractBalance = await erc20Contract.balanceOf(contract.address);
-          const beneficiaryBalance = await erc20Contract.balanceOf(beneficiary.address);
-          expect(contractBalance).to.equal(fundAmount.toString());
-          expect(beneficiaryBalance).to.equal(0);
-        });
-      });
-
-      describe("Halfway through the vesting period", function () {
-        it("Should release half of the funds to the beneficiary", async function () {
-          const {
-            contract,
-            erc20Contract,
-            beneficiary,
-            fundAmount
-          } = await loadFixture(deployFundAndAdvanceVestingContractToHalfwayThroughVestingPeriod);
-          const halfOfFunds = fundAmount.div(2);
-
-          await contract["release(address)"](erc20Contract.address);
-
-          const contractBalance = await erc20Contract.balanceOf(contract.address);
-          const beneficiaryBalance = await erc20Contract.balanceOf(beneficiary.address);
-          expect(contractBalance).to.equal(halfOfFunds);
-          expect(beneficiaryBalance).to.equal(halfOfFunds);
-        });
-      });
-
-      describe("At the end of the vesting period", function () {
-        it("Should release half of the funds to the beneficiary", async function () {
-          const {
-            contract,
-            erc20Contract,
-            beneficiary,
-            fundAmount
-          } = await loadFixture(deployFundAndAdvanceVestingContractToEndOfVestingPeriod);
-          await contract["release(address)"](erc20Contract.address);
-
-          const contractBalance = await erc20Contract.balanceOf(contract.address);
-          const beneficiaryBalance = await erc20Contract.balanceOf(beneficiary.address);
-          expect(contractBalance).to.equal(0);
-          expect(beneficiaryBalance).to.equal(fundAmount);
+            const contractBalance = await erc20Contract.balanceOf(contract.address);
+            const beneficiaryBalance = await erc20Contract.balanceOf(beneficiary.address);
+            expect(contractBalance).to.equal(fundAmount.toString());
+            expect(beneficiaryBalance).to.equal(0);
+          });
         });
 
-        it("Should revert if contract is paused", async function () {
-          const {
-            contract,
-            erc20Contract,
-            owner
-          } = await loadFixture(deployFundAndAdvanceVestingContractToEndOfVestingPeriod);
-          await contract.connect(owner).pause();
+        describe("Halfway through the vesting period", function () {
+          beforeEach(setTimeToHalfwayThroughVesting);
 
-          expect(contract["release(address)"](erc20Contract.address)).to.be.revertedWith(PAUSED_EXCEPTION);
+          it("Should release half of the funds to the beneficiary", async function () {
+            const {
+              contract,
+              erc20Contract,
+              beneficiary,
+              fundAmount
+            } = fundingParams;
+            const halfOfFunds = fundAmount.div(2);
+
+            await contract["release(address)"](erc20Contract.address);
+
+            const contractBalance = await erc20Contract.balanceOf(contract.address);
+            const beneficiaryBalance = await erc20Contract.balanceOf(beneficiary.address);
+            expect(contractBalance).to.equal(halfOfFunds);
+            expect(beneficiaryBalance).to.equal(halfOfFunds);
+          });
+        });
+
+        describe("At the end of the vesting period", function () {
+          beforeEach(setTimeToEndOfVestingPeriod);
+
+          it("Should release half of the funds to the beneficiary", async function () {
+            const {
+              contract,
+              erc20Contract,
+              beneficiary,
+              fundAmount
+            } = fundingParams;
+            await contract["release(address)"](erc20Contract.address);
+
+            const contractBalance = await erc20Contract.balanceOf(contract.address);
+            const beneficiaryBalance = await erc20Contract.balanceOf(beneficiary.address);
+            expect(contractBalance).to.equal(0);
+            expect(beneficiaryBalance).to.equal(fundAmount);
+          });
+
+          it("Should revert if contract is paused", async function () {
+            const {
+              contract,
+              erc20Contract,
+              owner
+            } = fundingParams;
+            await contract.connect(owner).pause();
+
+            expect(contract["release(address)"](erc20Contract.address)).to.be.revertedWith(PAUSED_EXCEPTION);
+          });
         });
       });
     });
