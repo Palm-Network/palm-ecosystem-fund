@@ -13,10 +13,9 @@ contract PalmEcosystemVestingWallet is Ownable, Pausable, VestingWallet {
     address private currentBeneficiary;
     uint64 private currentDuration;
 
-    constructor(address owner, address beneficiaryAddress, uint64 startTimestamp, uint64 durationSeconds) VestingWallet(beneficiaryAddress, startTimestamp, durationSeconds) {
+    constructor(address beneficiaryAddress, uint64 startTimestamp, uint64 durationSeconds) VestingWallet(beneficiaryAddress, startTimestamp, durationSeconds) {
         currentBeneficiary = beneficiaryAddress;
         currentDuration = durationSeconds;
-        _transferOwnership(owner);
     }
 
     function release() public override whenNotPaused {

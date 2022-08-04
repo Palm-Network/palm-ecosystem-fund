@@ -28,8 +28,11 @@ describe("PalmEcosystemVestingWallet", function () {
 
     // Deploy vesting contract
     const contractFactory = await ethers.getContractFactory("PalmEcosystemVestingWallet");
-    const contract = await contractFactory.deploy(owner.address, beneficiary.address, vestingStartTime, vestingDuration);
+    const contract = await contractFactory.deploy(beneficiary.address, vestingStartTime, vestingDuration);
     await contract.deployed();
+
+    // Set owner
+    await contract.transferOwnership(owner.address);
 
     // Deploy ERC-20
     const erc20Factory = await ethers.getContractFactory("SomeToken");
