@@ -23,6 +23,10 @@ contract PalmEcosystemVestingWallet is Ownable, Pausable, VestingWallet {
         super.release();
     }
 
+    function release(address token) public override whenNotPaused {
+        super.release(token);
+    }
+
     function pause() external onlyOwner {
         _pause();
     }

@@ -3,6 +3,7 @@ import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import {BigNumber} from "ethers";
+import {erc20} from "../typechain-types/@openzeppelin/contracts/token";
 
 const ONE_YEAR_IN_SECS = 365 * 24 * 60 * 60;
 const ONE_DAY_IN_SECONDS = 24 * 60 * 60;
@@ -25,20 +26,29 @@ describe("PalmEcosystemVestingWallet", function () {
     // Contracts are deployed using the first signer/account by default
     const [deployer, owner, beneficiary, otherAddress] = await ethers.getSigners();
 
+    // Deploy vesting contract
     const contractFactory = await ethers.getContractFactory("PalmEcosystemVestingWallet");
     const contract = await contractFactory.deploy(owner.address, beneficiary.address, vestingStartTime, vestingDuration);
     await contract.deployed();
 
-    return { contract, deployer, owner, beneficiary, otherAddress, vestingStartTime, vestingDuration };
+    // Deploy ERC-20
+    const erc20Factory = await ethers.getContractFactory("SomeToken");
+    const erc20Contract = await erc20Factory.deploy();
+    await erc20Contract.deployed();
+
+    return { contract, erc20Contract, deployer, owner, beneficiary, otherAddress, vestingStartTime, vestingDuration };
   }
 
   async function deployAndFundVestingContract() {
     const parameters = await loadFixture(deployVestingContract);
-    const {deployer, contract} = parameters;
+    const {deployer, contract, erc20Contract} = parameters;
 
-    // Fund the contract
+    // Fund the contract with native tokens
     const fundAmount = ONE_PALM.mul(1000);
     await deployer.sendTransaction({to: contract.address, value: fundAmount});
+
+    // Fund the contract with ERC-20 tokens
+    await erc20Contract.mint(contract.address, fundAmount);
 
     return {... parameters, fundAmount};
   }
@@ -257,86 +267,171 @@ describe("PalmEcosystemVestingWallet", function () {
   })
 
   describe("Withdrawals", function () {
-    describe("Before vesting begins", function () {
-      it("Should not transfer any funds to the beneficiary", async function () {
-        const {
-          contract,
-          beneficiary,
-          fundAmount
-        } = await loadFixture(deployAndFundVestingContract);
-        const beneficiaryInitialBalance = await beneficiary.getBalance();
+    describe("Of native tokens", function() {
+      describe("Before vesting begins", function () {
+        it("Should not transfer any funds to the beneficiary", async function () {
+          const {
+            contract,
+            beneficiary,
+            fundAmount
+          } = await loadFixture(deployAndFundVestingContract);
+          const beneficiaryInitialBalance = await beneficiary.getBalance();
 
-        await contract["release()"]();
+          await contract["release()"]();
 
-        const contractBalance = await contract.provider.getBalance(contract.address);
-        const beneficiaryBalance = await beneficiary.getBalance();
-        expect(contractBalance).to.equal(fundAmount.toString());
-        expect(beneficiaryBalance).to.equal(beneficiaryInitialBalance);
+          const contractBalance = await contract.provider.getBalance(contract.address);
+          const beneficiaryBalance = await beneficiary.getBalance();
+          expect(contractBalance).to.equal(fundAmount.toString());
+          expect(beneficiaryBalance).to.equal(beneficiaryInitialBalance);
+        });
+      });
+
+      describe("At vesting start time", function () {
+        it("Should not transfer any funds to the beneficiary", async function () {
+          const {
+            contract,
+            beneficiary,
+            fundAmount
+          } = await loadFixture(deployFundAndAdvanceVestingContractToStartTime);
+          const beneficiaryInitialBalance = await beneficiary.getBalance();
+
+          await contract["release()"]();
+
+          const contractBalance = await contract.provider.getBalance(contract.address);
+          const beneficiaryBalance = await beneficiary.getBalance();
+          expect(contractBalance).to.equal(fundAmount.toString());
+          expect(beneficiaryBalance).to.equal(beneficiaryInitialBalance);
+        });
+      });
+
+      describe("Halfway through the vesting period", function () {
+        it("Should release half of the funds to the beneficiary", async function () {
+          const {
+            contract,
+            beneficiary,
+            fundAmount
+          } = await loadFixture(deployFundAndAdvanceVestingContractToHalfwayThroughVestingPeriod);
+          const beneficiaryInitialBalance = await beneficiary.getBalance();
+          const halfOfFunds = fundAmount.div(2);
+
+          await contract["release()"]();
+
+          const contractBalance = await contract.provider.getBalance(contract.address);
+          const beneficiaryBalance = await beneficiary.getBalance();
+          expect(contractBalance).to.equal(halfOfFunds.toString());
+          expect(beneficiaryBalance).to.equal(halfOfFunds.add(beneficiaryInitialBalance));
+        });
+      });
+
+      describe("At the end of the vesting period", function () {
+        it("Should release half of the funds to the beneficiary", async function () {
+          const {
+            contract,
+            beneficiary,
+            fundAmount
+          } = await loadFixture(deployFundAndAdvanceVestingContractToEndOfVestingPeriod);
+          const beneficiaryInitialBalance = await beneficiary.getBalance();
+
+          await contract["release()"]();
+
+          const contractBalance = await contract.provider.getBalance(contract.address);
+          const beneficiaryBalance = await beneficiary.getBalance();
+          expect(contractBalance).to.equal(0);
+          expect(beneficiaryBalance).to.equal(fundAmount.add(beneficiaryInitialBalance));
+        });
+
+        it("Should revert if contract is paused", async function () {
+          const {
+            contract,
+            owner
+          } = await loadFixture(deployFundAndAdvanceVestingContractToEndOfVestingPeriod);
+          await contract.connect(owner).pause();
+
+          expect(contract["release()"]()).to.be.revertedWith(PAUSED_EXCEPTION);
+        });
       });
     });
 
-    describe("At vesting start time", function () {
-      it("Should not transfer any funds to the beneficiary", async function () {
-        const {
-          contract,
-          beneficiary,
-          fundAmount
-        } = await loadFixture(deployFundAndAdvanceVestingContractToStartTime);
-        const beneficiaryInitialBalance = await beneficiary.getBalance();
+    describe("Of ERC-20 tokens", function() {
+      describe("Before vesting begins", function () {
+        it("Should not transfer any funds to the beneficiary", async function () {
+          const {
+            contract,
+            erc20Contract,
+            beneficiary,
+            fundAmount
+          } = await loadFixture(deployAndFundVestingContract);
+          await contract["release(address)"](erc20Contract.address);
 
-        await contract["release()"]();
-
-        const contractBalance = await contract.provider.getBalance(contract.address);
-        const beneficiaryBalance = await beneficiary.getBalance();
-        expect(contractBalance).to.equal(fundAmount.toString());
-        expect(beneficiaryBalance).to.equal(beneficiaryInitialBalance);
-      });
-    });
-
-    describe("Halfway through the vesting period", function () {
-      it("Should release half of the funds to the beneficiary", async function () {
-        const {
-          contract,
-          beneficiary,
-          fundAmount
-        } = await loadFixture(deployFundAndAdvanceVestingContractToHalfwayThroughVestingPeriod);
-        const beneficiaryInitialBalance = await beneficiary.getBalance();
-        const halfOfFunds = fundAmount.div(2);
-
-        await contract["release()"]();
-
-        const contractBalance = await contract.provider.getBalance(contract.address);
-        const beneficiaryBalance = await beneficiary.getBalance();
-        expect(contractBalance).to.equal(halfOfFunds.toString());
-        expect(beneficiaryBalance).to.equal(halfOfFunds.add(beneficiaryInitialBalance));
-      });
-    });
-
-    describe("At the end of the vesting period", function () {
-      it("Should release half of the funds to the beneficiary", async function () {
-        const {
-          contract,
-          beneficiary,
-          fundAmount
-        } = await loadFixture(deployFundAndAdvanceVestingContractToEndOfVestingPeriod);
-        const beneficiaryInitialBalance = await beneficiary.getBalance();
-
-        await contract["release()"]();
-
-        const contractBalance = await contract.provider.getBalance(contract.address);
-        const beneficiaryBalance = await beneficiary.getBalance();
-        expect(contractBalance).to.equal(0);
-        expect(beneficiaryBalance).to.equal(fundAmount.add(beneficiaryInitialBalance));
+          const contractBalance = await erc20Contract.balanceOf(contract.address);
+          const beneficiaryBalance = await erc20Contract.balanceOf(beneficiary.address);
+          expect(contractBalance).to.equal(fundAmount.toString());
+          expect(beneficiaryBalance).to.equal(0);
+        });
       });
 
-      it("Should revert if contract is paused", async function () {
-        const {
-          contract,
-          owner
-        } = await loadFixture(deployFundAndAdvanceVestingContractToEndOfVestingPeriod);
-        await contract.connect(owner).pause();
+      describe("At vesting start time", function () {
+        it("Should not transfer any funds to the beneficiary", async function () {
+          const {
+            contract,
+            erc20Contract,
+            beneficiary,
+            fundAmount
+          } = await loadFixture(deployFundAndAdvanceVestingContractToStartTime);
+          await contract["release(address)"](erc20Contract.address);
 
-        expect(contract["release()"]()).to.be.revertedWith(PAUSED_EXCEPTION);
+          const contractBalance = await erc20Contract.balanceOf(contract.address);
+          const beneficiaryBalance = await erc20Contract.balanceOf(beneficiary.address);
+          expect(contractBalance).to.equal(fundAmount.toString());
+          expect(beneficiaryBalance).to.equal(0);
+        });
+      });
+
+      describe("Halfway through the vesting period", function () {
+        it("Should release half of the funds to the beneficiary", async function () {
+          const {
+            contract,
+            erc20Contract,
+            beneficiary,
+            fundAmount
+          } = await loadFixture(deployFundAndAdvanceVestingContractToHalfwayThroughVestingPeriod);
+          const halfOfFunds = fundAmount.div(2);
+
+          await contract["release(address)"](erc20Contract.address);
+
+          const contractBalance = await erc20Contract.balanceOf(contract.address);
+          const beneficiaryBalance = await erc20Contract.balanceOf(beneficiary.address);
+          expect(contractBalance).to.equal(halfOfFunds);
+          expect(beneficiaryBalance).to.equal(halfOfFunds);
+        });
+      });
+
+      describe("At the end of the vesting period", function () {
+        it("Should release half of the funds to the beneficiary", async function () {
+          const {
+            contract,
+            erc20Contract,
+            beneficiary,
+            fundAmount
+          } = await loadFixture(deployFundAndAdvanceVestingContractToEndOfVestingPeriod);
+          await contract["release(address)"](erc20Contract.address);
+
+          const contractBalance = await erc20Contract.balanceOf(contract.address);
+          const beneficiaryBalance = await erc20Contract.balanceOf(beneficiary.address);
+          expect(contractBalance).to.equal(0);
+          expect(beneficiaryBalance).to.equal(fundAmount);
+        });
+
+        it("Should revert if contract is paused", async function () {
+          const {
+            contract,
+            erc20Contract,
+            owner
+          } = await loadFixture(deployFundAndAdvanceVestingContractToEndOfVestingPeriod);
+          await contract.connect(owner).pause();
+
+          expect(contract["release(address)"](erc20Contract.address)).to.be.revertedWith(PAUSED_EXCEPTION);
+        });
       });
     });
   });
