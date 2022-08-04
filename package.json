@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "hardhat test",
+    "local-node": "hardhat node",
     "compile": "hardhat compile",
     "deploy-help": "npx hardhat help deploy"
   },
