@@ -212,7 +212,9 @@ describe("PalmEcosystemVestingWallet", function () {
           expect(initialDuration).to.equal(vestingDuration);
 
           const newDuration = vestingDuration * 2;
-          await contract.connect(owner).setDuration(newDuration);
+          const txResult = contract.connect(owner).setDuration(newDuration);
+          await expect(txResult).to.emit(contract, "DurationUpdated")
+            .withArgs(vestingDuration, newDuration);
           expect(await contract.duration()).to.equal(newDuration);
         });
 

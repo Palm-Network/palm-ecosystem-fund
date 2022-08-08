@@ -10,6 +10,7 @@ import "@openzeppelin/contracts/finance/VestingWallet.sol";
 
 contract PalmEcosystemVestingWallet is Ownable, Pausable, VestingWallet {
     event BeneficiaryUpdated(address indexed previousBeneficiary, address indexed newBeneficiary);
+    event DurationUpdated(uint64 previousDuration, uint64 newDuration);
 
     address private currentBeneficiary;
     uint64 private currentDuration;
@@ -53,6 +54,8 @@ contract PalmEcosystemVestingWallet is Ownable, Pausable, VestingWallet {
 
     function setDuration(uint64 newDuration) external onlyOwner {
         require(newDuration != currentDuration, "New duration must differ from current duration");
+        uint64 prevDuration = currentDuration;
         currentDuration = newDuration;
+        emit DurationUpdated(prevDuration, newDuration);
     }
 }
