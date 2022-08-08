@@ -98,7 +98,7 @@ describe("PalmEcosystemVestingWallet", function () {
           const { contract, deployer, otherAddress } = deployParams;
 
           const txResult = contract.connect(deployer).transferOwnership(otherAddress.address);
-          expect(txResult).to.be.revertedWith(NOT_OWNER_ERROR);
+          await expect(txResult).to.be.revertedWith(NOT_OWNER_ERROR);
         });
       });
 
@@ -119,13 +119,13 @@ describe("PalmEcosystemVestingWallet", function () {
           const { contract, owner } = await deployParams;
           await contract.connect(owner).pause();
 
-          expect(contract.connect(owner).pause()).to.be.revertedWith(PAUSED_EXCEPTION);
+          await expect(contract.connect(owner).pause()).to.be.revertedWith(PAUSED_EXCEPTION);
         });
 
         it("Should revert if invoked by non-owner", async function() {
           const { contract, otherAddress } = await deployParams;
 
-          expect(contract.connect(otherAddress).pause()).to.be.revertedWith(NOT_OWNER_ERROR);
+          await expect(contract.connect(otherAddress).pause()).to.be.revertedWith(NOT_OWNER_ERROR);
         });
       });
 
@@ -146,14 +146,14 @@ describe("PalmEcosystemVestingWallet", function () {
         it("Should revert if the contract is already unpaused", async function() {
           const { contract, owner } = deployParams;
 
-          expect(contract.connect(owner).unpause()).to.be.revertedWith("Pausable: not paused");
+          await expect(contract.connect(owner).unpause()).to.be.revertedWith("Pausable: not paused");
         });
 
         it("Should revert if invoked by non-owner", async function() {
           const { contract, owner, otherAddress } = deployParams;
 
           await contract.connect(owner).pause();
-          expect(contract.connect(otherAddress).unpause()).to.be.revertedWith(NOT_OWNER_ERROR);
+          await expect(contract.connect(otherAddress).unpause()).to.be.revertedWith(NOT_OWNER_ERROR);
         });
       });
 
@@ -183,19 +183,19 @@ describe("PalmEcosystemVestingWallet", function () {
         it("Should revert if beneficiary is set to existing value", async function() {
           const { contract, owner, beneficiary } = deployParams;
 
-          expect(contract.connect(owner).setBeneficiary(beneficiary.address)).to.be.revertedWith("New beneficiary must differ from current beneficiary");
+          await expect(contract.connect(owner).setBeneficiary(beneficiary.address)).to.be.revertedWith("New beneficiary must differ from current beneficiary");
         });
 
         it("Should revert if beneficiary is set to the zero address", async function() {
           const { contract, owner } = deployParams;
 
-          expect(contract.connect(owner).setBeneficiary(ZERO_ADDRESS)).to.be.revertedWith("Beneficiary is zero address");
+          await expect(contract.connect(owner).setBeneficiary(ZERO_ADDRESS)).to.be.revertedWith("Beneficiary is zero address");
         });
 
         it("Should revert if invoked by non-owner", async function() {
           const { contract, deployer, otherAddress } = deployParams;
 
-          expect(contract.connect(deployer).setBeneficiary(otherAddress.address)).to.be.revertedWith(NOT_OWNER_ERROR);
+          await expect(contract.connect(deployer).setBeneficiary(otherAddress.address)).to.be.revertedWith(NOT_OWNER_ERROR);
         });
       });
 
@@ -224,13 +224,13 @@ describe("PalmEcosystemVestingWallet", function () {
         it("Should revert if new duration matches old duration", async function() {
           const { contract, owner, vestingDuration } = deployParams;
 
-          expect(contract.connect(owner).setDuration(vestingDuration)).to.be.revertedWith("New duration must differ from current duration");
+          await expect(contract.connect(owner).setDuration(vestingDuration)).to.be.revertedWith("New duration must differ from current duration");
         });
 
         it("Should revert if invoked by non-owner", async function() {
           const { contract, deployer, vestingDuration } = deployParams;
 
-          expect(contract.connect(deployer).setDuration(vestingDuration + 1)).to.be.revertedWith(NOT_OWNER_ERROR);
+          await expect(contract.connect(deployer).setDuration(vestingDuration + 1)).to.be.revertedWith(NOT_OWNER_ERROR);
         });
       });
     });
@@ -360,7 +360,7 @@ describe("PalmEcosystemVestingWallet", function () {
               } = deployParams;
               await contract.connect(owner).pause();
 
-              expect(contract["release()"]()).to.be.revertedWith(PAUSED_EXCEPTION);
+              await expect(contract["release()"]()).to.be.revertedWith(PAUSED_EXCEPTION);
             });
           });
         });
@@ -449,7 +449,7 @@ describe("PalmEcosystemVestingWallet", function () {
               } = fundingParams;
               await contract.connect(owner).pause();
 
-              expect(contract["release(address)"](erc20Contract.address)).to.be.revertedWith(PAUSED_EXCEPTION);
+              await expect(contract["release(address)"](erc20Contract.address)).to.be.revertedWith(PAUSED_EXCEPTION);
             });
           });
         });
