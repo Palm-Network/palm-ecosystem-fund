@@ -9,6 +9,7 @@ import "@openzeppelin/contracts/finance/VestingWallet.sol";
 //import "hardhat/console.sol";
 
 contract PalmEcosystemVestingWallet is Ownable, Pausable, VestingWallet {
+    event BeneficiaryUpdated(address indexed previousBeneficiary, address indexed newBeneficiary);
 
     address private currentBeneficiary;
     uint64 private currentDuration;
@@ -41,7 +42,9 @@ contract PalmEcosystemVestingWallet is Ownable, Pausable, VestingWallet {
     function setBeneficiary(address newBeneficiary) external onlyOwner {
         require(newBeneficiary != address(0), "Beneficiary is zero address");
         require(newBeneficiary != currentBeneficiary, "New beneficiary must differ from current beneficiary");
+        address prevBeneficiary = currentBeneficiary;
         currentBeneficiary = newBeneficiary;
+        emit BeneficiaryUpdated(prevBeneficiary, newBeneficiary);
     }
 
     function duration() public view override returns (uint256) {
