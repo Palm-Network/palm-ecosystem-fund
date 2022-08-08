@@ -164,7 +164,9 @@ describe("PalmEcosystemVestingWallet", function () {
           const initialBeneficiary = await contract.beneficiary();
           expect(initialBeneficiary).to.equal(beneficiary.address);
 
-          await contract.connect(owner).setBeneficiary(otherAddress.address);
+          const txResult = contract.connect(owner).setBeneficiary(otherAddress.address);
+          await expect(txResult).to.emit(contract, "BeneficiaryUpdated")
+            .withArgs(beneficiary.address, otherAddress.address);
           expect(await contract.beneficiary()).to.equal(otherAddress.address);
         });
 
@@ -176,7 +178,9 @@ describe("PalmEcosystemVestingWallet", function () {
           const initialBeneficiary = await contract.beneficiary();
           expect(initialBeneficiary).to.equal(beneficiary.address);
 
-          await contract.connect(owner).setBeneficiary(otherAddress.address);
+          const txResult = contract.connect(owner).setBeneficiary(otherAddress.address);
+          await expect(txResult).to.emit(contract, "BeneficiaryUpdated")
+            .withArgs(beneficiary.address, otherAddress.address);
           expect(await contract.beneficiary()).to.equal(otherAddress.address);
         });
 
@@ -208,7 +212,9 @@ describe("PalmEcosystemVestingWallet", function () {
           expect(initialDuration).to.equal(vestingDuration);
 
           const newDuration = vestingDuration * 2;
-          await contract.connect(owner).setDuration(newDuration);
+          const txResult = contract.connect(owner).setDuration(newDuration);
+          await expect(txResult).to.emit(contract, "DurationUpdated")
+            .withArgs(vestingDuration, newDuration);
           expect(await contract.duration()).to.equal(newDuration);
         });
 
