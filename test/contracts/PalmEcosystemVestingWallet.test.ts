@@ -14,13 +14,13 @@ const NOT_OWNER_ERROR = "Ownable: caller is not the owner";
 const PAUSED_EXCEPTION = "Pausable: paused";
 const NOT_PAUSED_EXCEPTION = "Pausable: not paused";
 
-describe("PalmEcosystemVestingWallet", function () {
+describe("PalmEcosystemVestingWallet Contract", function () {
   // We define a fixture to reuse the same setup in every test.
   // We use loadFixture to run this setup once, snapshot that state,
   // and reset Hardhat Network to that snapshopt in every test.
   type DeployParams = { owner: SignerWithAddress; beneficiary: SignerWithAddress; contract: Contract; otherAddress: SignerWithAddress; vestingDuration: number; deployer: SignerWithAddress; erc20Contract: Contract; vestingStartTime: number };
   async function deployVestingContractFixture(): Promise<DeployParams> {
-    const currentTime = (await time.latest()) + ONE_YEAR_IN_SECS;
+    const currentTime = (await time.latest());
     const vestingStartTime = currentTime + ONE_DAY_IN_SECONDS * 7;
     const vestingDuration = ONE_YEAR_IN_SECS;
 
@@ -48,7 +48,7 @@ describe("PalmEcosystemVestingWallet", function () {
     deployParams  = await loadFixture(deployVestingContractFixture);
   });
 
-  describe("After Deployment", function() {
+  describe("After deployment", function() {
     // Define some helpers to modify block timestamp
     async function setTimeAtStartOfVesting() {
       await time.increaseTo(deployParams.vestingStartTime - 1);
@@ -159,7 +159,7 @@ describe("PalmEcosystemVestingWallet", function () {
       });
 
       describe("setBeneficiary()", function() {
-        describe ("when paused", function() {
+        describe ("When paused", function() {
           beforeEach(async () => {
             const {contract, owner} = deployParams;
             await contract.connect(owner).pause();
@@ -196,7 +196,7 @@ describe("PalmEcosystemVestingWallet", function () {
           });
         });
 
-        describe("when not paused", function() {
+        describe("When not paused", function() {
           it("Should revert even if the owner requests the update", async function() {
             const { contract, owner, beneficiary, otherAddress } = deployParams;
 
@@ -209,7 +209,7 @@ describe("PalmEcosystemVestingWallet", function () {
       });
 
       describe("setDuration()", function() {
-        describe ("when paused", function() {
+        describe ("When paused", function() {
           beforeEach(async () => {
             const {contract, owner} = deployParams;
             await contract.connect(owner).pause();
@@ -241,7 +241,7 @@ describe("PalmEcosystemVestingWallet", function () {
           });
         });
 
-        describe ("when not paused", function() {
+        describe ("When not paused", function() {
           it("Should revert even if the owner requests the update", async function() {
             const { contract, owner, vestingDuration } = deployParams;
 
