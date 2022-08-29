@@ -7,8 +7,7 @@
     "test": "npx hardhat test",
     "local-node": "npx hardhat node",
     "compile": "npx hardhat compile",
-    "deploy-help": "npx hardhat help deploy",
-    "deploy-local": "npx hardhat deploy --network localhost "
+    "deploy-help": "npx hardhat help deploy"
   },
   "author": "",
   "license": "ISC",
