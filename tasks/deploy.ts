@@ -7,9 +7,10 @@ task("deploy", "Deploy a vesting contract")
   .addParam<string>("startDate", "The date (formatted YYYY-MM-DD) when vesting begins", undefined, types.string)
   .addParam<string>("endDate", "The date (formatted YYYY-MM-DD) when vesting ends", undefined, types.string)
   .addFlag("dryRun", "Only log a preview of the task, but do not actually execute")
+  .addFlag("silent", "If set to true, suppress logging")
   .setAction( async (taskArgs, hre) => {
         const {ethers} = hre;
-        const {beneficiary:beneficiaryString, startDate:start, endDate:end, dryRun} = taskArgs;
+        const {beneficiary:beneficiaryString, startDate:start, endDate:end, dryRun, silent} = taskArgs;
 
         // Extra validation
         if (!addressFormat.test(beneficiaryString)) {
@@ -33,22 +34,22 @@ task("deploy", "Deploy a vesting contract")
 
         // Warn on dry-run
         if (dryRun) {
-              console.warn("This is a dry run. No contract will actually be deployed.");
+              !silent && console.warn("This is a dry run. No contract will actually be deployed.");
         }
 
         // Log feedback on the supplied parameters
-        console.log(`Deploying new vesting contract for beneficiary ${beneficiary}`);
-        console.log(`\tVesting starts: ${startDate.toUTCString()}`);
-        console.log(`\tVesting completes: ${endDate.toUTCString()}`);
+        !silent && console.log(`Deploying new vesting contract for beneficiary ${beneficiary}`);
+        !silent && console.log(`\tVesting starts: ${startDate.toUTCString()}`);
+        !silent && console.log(`\tVesting completes: ${endDate.toUTCString()}`);
 
         // Calculate deployment arguments and log them
         const startTime = startDate.getTime();
         const endTime = endDate.getTime();
         const duration = endTime - startTime;
-        console.log(`Contract deployment arguments:`);
-        console.log(`\tbeneficiary: ${beneficiary}`);
-        console.log(`\tstartTime: ${startTime}`);
-        console.log(`\tduration: ${duration}`);
+        !silent && console.log(`Contract deployment arguments:`);
+        !silent && console.log(`\tbeneficiary: ${beneficiary}`);
+        !silent && console.log(`\tstartTime: ${startTime}`);
+        !silent && console.log(`\tduration: ${duration}`);
 
         // Deploy
         if (!dryRun) {
@@ -56,6 +57,7 @@ task("deploy", "Deploy a vesting contract")
               const contract = await contractFactory.deploy(beneficiary, startTime, duration);
               await contract.deployed();
 
-              console.log("Contract deployed to:", contract.address);
+              !silent && console.log("Contract deployed to:", contract.address);
+              return contract.address;
         }
   });
