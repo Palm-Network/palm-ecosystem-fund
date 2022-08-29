@@ -12,6 +12,7 @@ const ZERO_ADDRESS = "0x" + "00".repeat(20);
 
 const NOT_OWNER_ERROR = "Ownable: caller is not the owner";
 const PAUSED_EXCEPTION = "Pausable: paused";
+const NOT_PAUSED_EXCEPTION = "Pausable: not paused";
 
 describe("PalmEcosystemVestingWallet", function () {
   // We define a fixture to reuse the same setup in every test.
@@ -146,7 +147,7 @@ describe("PalmEcosystemVestingWallet", function () {
         it("Should revert if the contract is already unpaused", async function() {
           const { contract, owner } = deployParams;
 
-          await expect(contract.connect(owner).unpause()).to.be.revertedWith("Pausable: not paused");
+          await expect(contract.connect(owner).unpause()).to.be.revertedWith(NOT_PAUSED_EXCEPTION);
         });
 
         it("Should revert if invoked by non-owner", async function() {
@@ -158,85 +159,98 @@ describe("PalmEcosystemVestingWallet", function () {
       });
 
       describe("setBeneficiary()", function() {
-        it("Should set beneficiary when the owner requests it", async function() {
-          const { contract, owner, beneficiary, otherAddress } = deployParams;
+        describe ("when paused", function() {
+          beforeEach(async () => {
+            const {contract, owner} = deployParams;
+            await contract.connect(owner).pause();
+          });
 
-          const initialBeneficiary = await contract.beneficiary();
-          expect(initialBeneficiary).to.equal(beneficiary.address);
+          it("Should set beneficiary when the owner requests it", async function() {
+            const { contract, owner, beneficiary, otherAddress } = deployParams;
 
-          const txResult = contract.connect(owner).setBeneficiary(otherAddress.address);
-          await expect(txResult).to.emit(contract, "BeneficiaryUpdated")
-            .withArgs(beneficiary.address, otherAddress.address);
-          expect(await contract.beneficiary()).to.equal(otherAddress.address);
+            const initialBeneficiary = await contract.beneficiary();
+            expect(initialBeneficiary).to.equal(beneficiary.address);
+
+            const txResult = contract.connect(owner).setBeneficiary(otherAddress.address);
+            await expect(txResult).to.emit(contract, "BeneficiaryUpdated")
+              .withArgs(beneficiary.address, otherAddress.address);
+            expect(await contract.beneficiary()).to.equal(otherAddress.address);
+          });
+
+          it("Should revert if beneficiary is set to existing value", async function() {
+            const { contract, owner, beneficiary } = deployParams;
+
+            await expect(contract.connect(owner).setBeneficiary(beneficiary.address)).to.be.revertedWith("New beneficiary must differ from current beneficiary");
+          });
+
+          it("Should revert if beneficiary is set to the zero address", async function() {
+            const { contract, owner } = deployParams;
+
+            await expect(contract.connect(owner).setBeneficiary(ZERO_ADDRESS)).to.be.revertedWith("Beneficiary is zero address");
+          });
+
+          it("Should revert if invoked by non-owner", async function() {
+            const { contract, deployer, otherAddress } = deployParams;
+
+            await expect(contract.connect(deployer).setBeneficiary(otherAddress.address)).to.be.revertedWith(NOT_OWNER_ERROR);
+          });
         });
 
-        it("Should set beneficiary even if contract is paused", async function() {
-          const { contract, owner, beneficiary, otherAddress } = deployParams;
-          await contract.connect(owner).pause();
+        describe("when not paused", function() {
+          it("Should revert even if the owner requests the update", async function() {
+            const { contract, owner, beneficiary, otherAddress } = deployParams;
 
-          // Check preconditions
-          const initialBeneficiary = await contract.beneficiary();
-          expect(initialBeneficiary).to.equal(beneficiary.address);
+            const initialBeneficiary = await contract.beneficiary();
+            expect(initialBeneficiary).to.equal(beneficiary.address);
 
-          const txResult = contract.connect(owner).setBeneficiary(otherAddress.address);
-          await expect(txResult).to.emit(contract, "BeneficiaryUpdated")
-            .withArgs(beneficiary.address, otherAddress.address);
-          expect(await contract.beneficiary()).to.equal(otherAddress.address);
-        });
-
-        it("Should revert if beneficiary is set to existing value", async function() {
-          const { contract, owner, beneficiary } = deployParams;
-
-          await expect(contract.connect(owner).setBeneficiary(beneficiary.address)).to.be.revertedWith("New beneficiary must differ from current beneficiary");
-        });
-
-        it("Should revert if beneficiary is set to the zero address", async function() {
-          const { contract, owner } = deployParams;
-
-          await expect(contract.connect(owner).setBeneficiary(ZERO_ADDRESS)).to.be.revertedWith("Beneficiary is zero address");
-        });
-
-        it("Should revert if invoked by non-owner", async function() {
-          const { contract, deployer, otherAddress } = deployParams;
-
-          await expect(contract.connect(deployer).setBeneficiary(otherAddress.address)).to.be.revertedWith(NOT_OWNER_ERROR);
+            await expect(contract.connect(owner).setBeneficiary(otherAddress.address)).to.be.revertedWith(NOT_PAUSED_EXCEPTION);
+          });
         });
       });
 
       describe("setDuration()", function() {
+        describe ("when paused", function() {
+          beforeEach(async () => {
+            const {contract, owner} = deployParams;
+            await contract.connect(owner).pause();
+          });
 
-        it("Should set duration when the owner requests it", async function() {
-          const { contract, owner, vestingDuration } = deployParams;
+          it("Should set duration when the owner requests it", async function() {
+            const { contract, owner, vestingDuration } = deployParams;
 
-          const initialDuration = await contract.duration();
-          expect(initialDuration).to.equal(vestingDuration);
+            const initialDuration = await contract.duration();
+            expect(initialDuration).to.equal(vestingDuration);
 
-          const newDuration = vestingDuration * 2;
-          const txResult = contract.connect(owner).setDuration(newDuration);
-          await expect(txResult).to.emit(contract, "DurationUpdated")
-            .withArgs(vestingDuration, newDuration);
-          expect(await contract.duration()).to.equal(newDuration);
+            const newDuration = vestingDuration * 2;
+            const txResult = contract.connect(owner).setDuration(newDuration);
+            await expect(txResult).to.emit(contract, "DurationUpdated")
+              .withArgs(vestingDuration, newDuration);
+            expect(await contract.duration()).to.equal(newDuration);
+          });
+
+          it("Should revert if new duration matches old duration", async function() {
+            const { contract, owner, vestingDuration } = deployParams;
+
+            await expect(contract.connect(owner).setDuration(vestingDuration)).to.be.revertedWith("New duration must differ from current duration");
+          });
+
+          it("Should revert if invoked by non-owner", async function() {
+            const { contract, deployer, vestingDuration } = deployParams;
+
+            await expect(contract.connect(deployer).setDuration(vestingDuration + 1)).to.be.revertedWith(NOT_OWNER_ERROR);
+          });
         });
 
-        it("Should set duration even if contract is paused", async function() {
-          const { contract, owner, vestingDuration } = deployParams;
-          await contract.connect(owner).pause();
+        describe ("when not paused", function() {
+          it("Should revert even if the owner requests the update", async function() {
+            const { contract, owner, vestingDuration } = deployParams;
 
-          const newDuration = vestingDuration * 2;
-          await contract.connect(owner).setDuration(newDuration);
-          expect(await contract.duration()).to.equal(newDuration);
-        });
+            const initialDuration = await contract.duration();
+            expect(initialDuration).to.equal(vestingDuration);
 
-        it("Should revert if new duration matches old duration", async function() {
-          const { contract, owner, vestingDuration } = deployParams;
-
-          await expect(contract.connect(owner).setDuration(vestingDuration)).to.be.revertedWith("New duration must differ from current duration");
-        });
-
-        it("Should revert if invoked by non-owner", async function() {
-          const { contract, deployer, vestingDuration } = deployParams;
-
-          await expect(contract.connect(deployer).setDuration(vestingDuration + 1)).to.be.revertedWith(NOT_OWNER_ERROR);
+            const newDuration = vestingDuration * 2;
+            await expect(contract.connect(owner).setDuration(newDuration)).to.be.revertedWith(NOT_PAUSED_EXCEPTION);
+          });
         });
       });
     });

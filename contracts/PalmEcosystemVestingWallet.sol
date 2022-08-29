@@ -40,7 +40,7 @@ contract PalmEcosystemVestingWallet is Ownable, Pausable, VestingWallet {
         return currentBeneficiary;
     }
 
-    function setBeneficiary(address newBeneficiary) external onlyOwner {
+    function setBeneficiary(address newBeneficiary) external onlyOwner whenPaused {
         require(newBeneficiary != address(0), "Beneficiary is zero address");
         require(newBeneficiary != currentBeneficiary, "New beneficiary must differ from current beneficiary");
         address prevBeneficiary = currentBeneficiary;
@@ -52,7 +52,7 @@ contract PalmEcosystemVestingWallet is Ownable, Pausable, VestingWallet {
         return currentDuration;
     }
 
-    function setDuration(uint64 newDuration) external onlyOwner {
+    function setDuration(uint64 newDuration) external onlyOwner whenPaused {
         require(newDuration != currentDuration, "New duration must differ from current duration");
         uint64 prevDuration = currentDuration;
         currentDuration = newDuration;
