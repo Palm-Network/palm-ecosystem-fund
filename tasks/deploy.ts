@@ -43,8 +43,8 @@ task("deploy", "Deploy a vesting contract")
         !silent && console.log(`\tVesting completes: ${endDate.toUTCString()}`);
 
         // Calculate deployment arguments and log them
-        const startTime = startDate.getTime();
-        const endTime = endDate.getTime();
+        const startTime = startDate.getTime() / 1000;
+        const endTime = endDate.getTime() / 1000;
         const duration = endTime - startTime;
         !silent && console.log(`Contract deployment arguments:`);
         !silent && console.log(`\tbeneficiary: ${beneficiary}`);
