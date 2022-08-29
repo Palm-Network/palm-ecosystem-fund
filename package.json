@@ -4,10 +4,11 @@
   "description": "Holds contracts necessary for managing the Palm network ecosystem fund",
   "main": "index.js",
   "scripts": {
-    "test": "hardhat test",
-    "local-node": "hardhat node",
-    "compile": "hardhat compile",
-    "deploy-help": "npx hardhat help deploy"
+    "test": "npx hardhat test",
+    "local-node": "npx hardhat node",
+    "compile": "npx hardhat compile",
+    "deploy-help": "npx hardhat help deploy",
+    "deploy-local": "npx hardhat deploy --network localhost "
   },
   "author": "",
   "license": "ISC",
