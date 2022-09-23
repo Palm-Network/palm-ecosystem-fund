@@ -17,12 +17,12 @@ npm test
 
 # PalmEcosystemVestingWallet Contract
 ## About
-This contract is designed to hold PALM ecosystem funds.  These funds will vest over time.  As funds vest, they can be released to the designated `beneficiary`.
+This contract is designed to hold PALM ecosystem funds.  These funds will become available over time.  As funds become available, they can be released to the designated `beneficiary`.
 
 This contract has an `owner` with the following admin rights over the contract:
-* Distributions can be paused
-* The vesting duration can be updated
-* The target beneficiary can be updated
+* The contract can be paused/unpaused
+* The duration over which funds become available can be updated (when the contract is paused)
+* The target beneficiary can be updated (when the contract is paused)
 
 ## Deploy
 To print documentation on the deploy command run:
