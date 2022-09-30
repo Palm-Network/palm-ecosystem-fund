@@ -35,3 +35,7 @@ For example, the following command will deploy to a local network:
 ```shell
 npx hardhat deploy --network localhost --beneficiary "0x70997970C51812dc3A010C7d01b50e0d17dc79C8" --start-date 2022-12-01 --end-date 2026-12-01 --final-owner "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"
 ```
+
+## Deploying to production
+To deploy to production, copy `.env.sample` to `.env` and set up your private key and infura api key.
+Then simply run the deploy script with the `--network` parameter set to either "palm" or "palm-testnet". 
